@@ -1,68 +1,40 @@
-// eslint-disable-next-line import/no-extraneous-dependencies
-const mongoose = require('mongoose');
+import { MongoClient } from 'mongodb';
 
-const userSchema = new mongoose.Schema({});
-const fileSchema = new mongoose.Schema({});
-
-const User = mongoose.model('users', userSchema);
-const File = mongoose.model('files', fileSchema);
+const HOST = process.env.DB_HOST || 'localhost';
+const PORT = process.env.DB_PORT || 27017;
+const DATABASE = process.env.DB_DATABASE || 'files_manager';
+const url = `mongodb://${HOST}:${PORT}`;
 
 class DBClient {
   constructor() {
-    // Get MongoDB connection details from environment variables or use defaults
-    const host = process.env.DB_HOST || 'localhost';
-    const port = process.env.DB_PORT || 27017;
-    const database = process.env.DB_DATABASE || 'files_manager';
-    const uri = `mongodb://${host}:${port}/${database}`;
-
-    // Connect to MongoDB
-    mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    // Check for connection errors
-    const db = mongoose.connection;
-    db.on('error', (err) => {
-      console.error('MongoDB connection error:', err);
-    });
-    db.once('open', () => {
-      console.log('Connected to MongoDB');
-    });
+    this.client = new MongoClient(url, { useUnifiedTopology: true, useNewUrlParser: true });
+    this.client.connect()
+      .then(() => {
+        this.db = this.client.db(DATABASE);
+        console.log('Connected to MongoDB');
+      })
+      .catch((err) => {
+        console.error('MongoDB connection error:', err);
+      });
   }
 
-  // eslint-disable-next-line class-methods-use-this
   async isAlive() {
-    // Check if mongoose.connection is available and the readyState is connected (1)
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      return true;
-    }
-    return false;
+    // Check if the client is connected
+    return this.client.isConnected();
   }
 
-  // eslint-disable-next-line class-methods-use-this
   async nbUsers() {
-    try {
-      const count = await User.countDocuments().maxTimeMS(30000);
-      return count;
-    } catch (error) {
-      console.error('Error in nbUsers:', error);
-      throw error;
-    }
+    const users = this.db.collection('users');
+    const countUsers = await users.countDocuments();
+    return countUsers;
   }
 
-  // eslint-disable-next-line class-methods-use-this
   async nbFiles() {
-    try {
-      const count = await File.countDocuments();
-      return count;
-    } catch (error) {
-      console.error('Error in nbFiles:', error);
-      throw error;
-    }
+    const files = this.db.collection('files');
+    const countFiles = await files.countDocuments();
+    return countFiles;
   }
 }
 
-const dbClient = new DBClient(); // Create an instance of DBClient
-
-module.exports = dbClient;
+const dbClient = new DBClient();
+export default dbClient;
