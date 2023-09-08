@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb');
 
 const HOST = process.env.DB_HOST || 'localhost';
-const PORT = process.env.DB_PORT || 27017;
+const PORT = process.env.DB_PORT || 3000;
 const DATABASE = process.env.DB_DATABASE || 'files_manager';
 const url = `mongodb://${HOST}:${PORT}`;
 
@@ -31,9 +31,8 @@ class DBClient {
   }
 
   async nbUsers() {
-    if (!this.isConnected) {
-      throw new Error('Database connection is not alive');
-    }
+    // Wait for the connection to be established
+    await this.waitForConnection();
 
     const users = this.db.collection('users');
     const countUsers = await users.countDocuments();
@@ -41,13 +40,25 @@ class DBClient {
   }
 
   async nbFiles() {
-    if (!this.isConnected) {
-      throw new Error('Database connection is not alive');
-    }
+    // Wait for the connection to be established
+    await this.waitForConnection();
 
     const files = this.db.collection('files');
     const countFiles = await files.countDocuments();
     return countFiles;
+  }
+
+  async waitForConnection() {
+    return new Promise((resolve) => {
+      const checkConnection = () => {
+        if (this.isConnected) {
+          resolve();
+        } else {
+          setTimeout(checkConnection, 1000);
+        }
+      };
+      checkConnection();
+    });
   }
 }
 
